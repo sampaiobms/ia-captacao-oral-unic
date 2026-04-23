@@ -1,0 +1,25 @@
+{
+  "_meta": {
+    "description": "Placeholder — substituir pelo export real do n8n após construção do fluxo",
+    "instrucoes": [
+      "1. No n8n, construir o fluxo conforme docs/architecture.md",
+      "2. Menu superior → Download → salvar como n8n-whatsapp.json",
+      "3. Substituir este arquivo pelo export",
+      "4. Commitar no repositório"
+    ],
+    "fluxo_esperado": {
+      "trigger": "Webhook POST da Evolution API v1.8.2",
+      "nos": [
+        "Webhook — recebe mensagem WhatsApp",
+        "Router — verifica se é novo lead ou conversa existente",
+        "Supabase — busca/cria registro em leads",
+        "HTTP Request — envia para Flowise (agente Sofia)",
+        "Supabase — salva mensagem em mensagens e conversas",
+        "Switch — roteia por score (quente/morno/frio)",
+        "Evolution API — envia resposta da Sofia ao WhatsApp",
+        "Google Calendar — agenda avaliação (score >= 70)",
+        "Supabase — atualiza status e score do lead"
+      ]
+    }
+  }
+}
