@@ -1,0 +1,207 @@
+{
+  "nodes": [
+    {
+      "id": "chatOpenAI_0",
+      "position": { "x": 900, "y": 300 },
+      "type": "customNode",
+      "data": {
+        "id": "chatOpenAI_0",
+        "label": "ChatOpenAI",
+        "version": 6,
+        "name": "chatOpenAI",
+        "type": "ChatOpenAI",
+        "baseClasses": ["ChatOpenAI", "BaseChatModel", "BaseLanguageModel"],
+        "category": "Chat Models",
+        "description": "Modelo GPT-4o-mini — rápido e econômico para atendimento 24/7",
+        "inputParams": [
+          {
+            "label": "Connect Credential",
+            "name": "credential",
+            "type": "credential",
+            "credentialNames": ["openAIApi"]
+          },
+          {
+            "label": "Model Name",
+            "name": "modelName",
+            "type": "options",
+            "options": [
+              { "label": "gpt-4o-mini", "name": "gpt-4o-mini" },
+              { "label": "gpt-4o",      "name": "gpt-4o" }
+            ],
+            "default": "gpt-4o-mini",
+            "description": "Usar gpt-4o-mini para custo menor. Mudar para gpt-4o apenas se qualidade insuficiente."
+          },
+          {
+            "label": "Temperature",
+            "name": "temperature",
+            "type": "number",
+            "default": 0.3,
+            "description": "0.3 garante JSON consistente sem perder naturalidade"
+          },
+          {
+            "label": "Max Tokens",
+            "name": "maxTokens",
+            "type": "number",
+            "optional": true,
+            "default": 600,
+            "description": "Sofia responde em no máximo 3 parágrafos — 600 tokens é suficiente"
+          },
+          {
+            "label": "Streaming",
+            "name": "streaming",
+            "type": "boolean",
+            "default": false,
+            "description": "Manter false para integração com n8n via API síncrona"
+          }
+        ],
+        "inputAnchors": [],
+        "inputs": {
+          "modelName": "gpt-4o-mini",
+          "temperature": 0.3,
+          "maxTokens": 600,
+          "streaming": false
+        },
+        "outputAnchors": [
+          {
+            "id": "chatOpenAI_0-output-chatOpenAI-ChatOpenAI|BaseChatModel|BaseLanguageModel",
+            "name": "default",
+            "label": "ChatOpenAI",
+            "type": "ChatOpenAI | BaseChatModel | BaseLanguageModel"
+          }
+        ],
+        "selected": false
+      },
+      "width": 300,
+      "height": 520
+    },
+    {
+      "id": "bufferWindowMemory_0",
+      "position": { "x": 450, "y": 300 },
+      "type": "customNode",
+      "data": {
+        "id": "bufferWindowMemory_0",
+        "label": "Buffer Window Memory",
+        "version": 1,
+        "name": "bufferWindowMemory",
+        "type": "BufferWindowMemory",
+        "baseClasses": ["BufferWindowMemory", "BaseChatMemory", "BaseMemory"],
+        "category": "Memory",
+        "description": "Mantém as últimas N mensagens por lead (sessionId = telefone)",
+        "inputParams": [
+          {
+            "label": "Size",
+            "name": "k",
+            "type": "number",
+            "default": 10,
+            "description": "Últimas 10 trocas de mensagem por lead"
+          },
+          {
+            "label": "Session Id",
+            "name": "sessionId",
+            "type": "string",
+            "optional": true,
+            "description": "Deixar vazio — o n8n injeta o telefone do lead via overrideConfig.sessionId"
+          },
+          {
+            "label": "Memory Key",
+            "name": "memoryKey",
+            "type": "string",
+            "default": "chat_history"
+          }
+        ],
+        "inputAnchors": [],
+        "inputs": {
+          "k": 10,
+          "memoryKey": "chat_history"
+        },
+        "outputAnchors": [
+          {
+            "id": "bufferWindowMemory_0-output-bufferWindowMemory-BufferWindowMemory|BaseChatMemory|BaseMemory",
+            "name": "default",
+            "label": "BufferWindowMemory",
+            "type": "BufferWindowMemory | BaseChatMemory | BaseMemory"
+          }
+        ],
+        "selected": false
+      },
+      "width": 300,
+      "height": 380
+    },
+    {
+      "id": "conversationChain_0",
+      "position": { "x": 1350, "y": 200 },
+      "type": "customNode",
+      "data": {
+        "id": "conversationChain_0",
+        "label": "Conversation Chain — Sofia",
+        "version": 3,
+        "name": "conversationChain",
+        "type": "ConversationChain",
+        "baseClasses": ["ConversationChain", "LLMChain", "BaseChain"],
+        "category": "Chains",
+        "description": "Agente Sofia — captação de leads Oral Unic",
+        "inputParams": [
+          {
+            "label": "System Message",
+            "name": "systemMessagePrompt",
+            "type": "string",
+            "rows": 4,
+            "default": "Você é Sofia, assistente virtual da Oral Unic Chapadão do Sul.\nA clínica é referência regional em implantodontia e protocolos de reabilitação oral.\n\nSERVIÇOS PRIORITÁRIOS:\n- IMPLANTE UNITÁRIO: solução definitiva para dente perdido. Natural, durável, sem afetar dentes vizinhos.\n- PROTOCOLO ALL-ON-4/6: para ausência múltipla de dentes. Sorriso fixo e funcional em 1 dia.\n- INVISALIGN: alinhamento dental discreto com aparelho transparente removível.\n- CLÍNICOS GERAIS: canal, extração, limpeza, clareamento dental.\n\nFLUXO DE ATENDIMENTO:\n1. Boas-vindas calorosas com o nome do lead + pergunta aberta sobre como pode ajudar\n2. Identificar o serviço de interesse (escuta ativa)\n3. Qualificar urgência e situação atual (dor, tempo sem dente, quantos dentes)\n4. Oferecer agendamento de avaliação gratuita e sem compromisso\n5. Confirmar data/horário pelo Google Calendar\n\nSCORE DE QUALIFICAÇÃO (incluir no JSON de saída, NÃO mostrar ao lead):\n- Dente perdido ou ausência múltipla confirmada: +30\n- Relata dor ou dificuldade funcional (mastigar, falar): +25\n- Interesse em implante ou protocolo confirmado: +20\n- Disponibilidade imediata ou urgência declarada: +15\n- Pesquisou preço anteriormente / tem orçamento: +10\n\nClassificação:\n- Score >= 70 → QUENTE → esquentar e agendar imediatamente\n- Score 40-69 → MORNO  → nutrir com conteúdo + agendar em até 24h\n- Score < 40  → FRIO   → educativo + iniciar follow-up D0-D14\n\nREGRAS OBRIGATÓRIAS:\n- Máximo 3 parágrafos curtos por mensagem\n- Tom: acolhedor, empático, profissional — nunca pressionar\n- NUNCA mencionar preços ou valores\n- Se perguntada se é IA: diga que é a Sofia, assistente virtual da Oral Unic\n- NUNCA inventar informações sobre procedimentos ou resultados clínicos\n- Quando escalar para humano: proximo_passo = humano\n\nFORMATO DE SAÍDA OBRIGATÓRIO (responda SEMPRE neste JSON, sem markdown):\n{\"mensagem\": \"texto ao lead\", \"intencao\": \"implante|protocolo|invisalign|clinico|desconhecido\", \"score\": 0, \"status\": \"quente|morno|frio\", \"proximo_passo\": \"agendar|nutrir|followup|humano\"}"
+          }
+        ],
+        "inputAnchors": [
+          {
+            "label": "Language Model",
+            "name": "model",
+            "type": "BaseChatModel"
+          },
+          {
+            "label": "Memory",
+            "name": "memory",
+            "type": "BaseChatMemory",
+            "optional": true
+          }
+        ],
+        "inputs": {
+          "model": "{{chatOpenAI_0.data.instance}}",
+          "memory": "{{bufferWindowMemory_0.data.instance}}",
+          "systemMessagePrompt": "Você é Sofia, assistente virtual da Oral Unic Chapadão do Sul.\nA clínica é referência regional em implantodontia e protocolos de reabilitação oral.\n\nSERVIÇOS PRIORITÁRIOS:\n- IMPLANTE UNITÁRIO: solução definitiva para dente perdido. Natural, durável, sem afetar dentes vizinhos.\n- PROTOCOLO ALL-ON-4/6: para ausência múltipla de dentes. Sorriso fixo e funcional em 1 dia.\n- INVISALIGN: alinhamento dental discreto com aparelho transparente removível.\n- CLÍNICOS GERAIS: canal, extração, limpeza, clareamento dental.\n\nFLUXO DE ATENDIMENTO:\n1. Boas-vindas calorosas com o nome do lead + pergunta aberta sobre como pode ajudar\n2. Identificar o serviço de interesse (escuta ativa)\n3. Qualificar urgência e situação atual (dor, tempo sem dente, quantos dentes)\n4. Oferecer agendamento de avaliação gratuita e sem compromisso\n5. Confirmar data/horário pelo Google Calendar\n\nSCORE DE QUALIFICAÇÃO (incluir no JSON de saída, NÃO mostrar ao lead):\n- Dente perdido ou ausência múltipla confirmada: +30\n- Relata dor ou dificuldade funcional (mastigar, falar): +25\n- Interesse em implante ou protocolo confirmado: +20\n- Disponibilidade imediata ou urgência declarada: +15\n- Pesquisou preço anteriormente / tem orçamento: +10\n\nClassificação:\n- Score >= 70 → QUENTE → esquentar e agendar imediatamente\n- Score 40-69 → MORNO  → nutrir com conteúdo + agendar em até 24h\n- Score < 40  → FRIO   → educativo + iniciar follow-up D0-D14\n\nREGRAS OBRIGATÓRIAS:\n- Máximo 3 parágrafos curtos por mensagem\n- Tom: acolhedor, empático, profissional — nunca pressionar\n- NUNCA mencionar preços ou valores\n- Se perguntada se é IA: diga que é a Sofia, assistente virtual da Oral Unic\n- NUNCA inventar informações sobre procedimentos ou resultados clínicos\n- Quando escalar para humano: proximo_passo = humano\n\nFORMATO DE SAÍDA OBRIGATÓRIO (responda SEMPRE neste JSON, sem markdown):\n{\"mensagem\": \"texto ao lead\", \"intencao\": \"implante|protocolo|invisalign|clinico|desconhecido\", \"score\": 0, \"status\": \"quente|morno|frio\", \"proximo_passo\": \"agendar|nutrir|followup|humano\"}"
+        },
+        "outputAnchors": [
+          {
+            "id": "conversationChain_0-output-conversationChain-ConversationChain|LLMChain|BaseChain",
+            "name": "default",
+            "label": "ConversationChain",
+            "type": "ConversationChain | LLMChain | BaseChain"
+          }
+        ],
+        "selected": false
+      },
+      "width": 300,
+      "height": 640
+    }
+  ],
+  "edges": [
+    {
+      "source": "chatOpenAI_0",
+      "sourceHandle": "chatOpenAI_0-output-chatOpenAI-ChatOpenAI|BaseChatModel|BaseLanguageModel",
+      "target": "conversationChain_0",
+      "targetHandle": "conversationChain_0-input-model-BaseChatModel",
+      "type": "buttonedge",
+      "id": "chatOpenAI_0-conversationChain_0"
+    },
+    {
+      "source": "bufferWindowMemory_0",
+      "sourceHandle": "bufferWindowMemory_0-output-bufferWindowMemory-BufferWindowMemory|BaseChatMemory|BaseMemory",
+      "target": "conversationChain_0",
+      "targetHandle": "conversationChain_0-input-memory-BaseChatMemory",
+      "type": "buttonedge",
+      "id": "bufferWindowMemory_0-conversationChain_0"
+    }
+  ],
+  "viewport": {
+    "x": -200,
+    "y": 0,
+    "zoom": 0.75
+  }
+}
