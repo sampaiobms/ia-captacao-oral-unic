@@ -401,3 +401,64 @@ ia-captacao-oral-unic/
 
 Documento gerado em Abril 2026 — Oral Unic Chapadao do Sul
 Projeto: IA Captacao — MVP 60 dias
+
+UPGRADES IMPORTANTES 2026/04/24
+
+## 14. ATUALIZACOES POS-HANDOFF (Abril 2026)
+
+### Evolution API — Mudancas criticas
+
+**Versao final em producao:** v1.8.2 (NAO v2.x — tem bugs com Baileys)
+
+**Banco de dados:** MongoDB (NAO MySQL/PostgreSQL)
+- MongoDB Railway URI: mongodb://mongo:KPburcuOKPTapeUqLYrotHuDSTHeXcGr@mongodb.railway.internal:27017/evolution?authSource=admin
+
+**Variaveis de ambiente finais (Evolution API):**
+
+SERVER_PORT=8080
+SERVER_URL=https://evolution-api-production-cedd.up.railway.app
+AUTHENTICATION_TYPE=apikey
+AUTHENTICATION_API_KEY=oralunic2026
+AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES=true
+QRCODE_LIMIT=30
+DEL_INSTANCE=false
+DATABASE_ENABLED=true
+DATABASE_PROVIDER=mongodb
+DATABASE_CONNECTION_URI=mongodb://mongo:KPburcuOKPTapeUqLYrotHuDSTHeXcGr@mongodb.railway.internal:27017/evolution?authSource=admin
+DATABASE_CONNECTION_CLIENT_NAME=evolution_api
+DATABASE_SAVE_DATA_INSTANCE=true
+DATABASE_SAVE_DATA_NEW_MESSAGE=true
+DATABASE_SAVE_MESSAGE_UPDATE=true
+DATABASE_SAVE_DATA_CONTACTS=true
+DATABASE_SAVE_DATA_CHATS=true
+
+**Credenciais da instancia oral-unic:**
+- Instance API Key: A433F7FD-5F57-4C9B-9FED-8910E0401744
+- Global API Key: oralunic2026
+- Status: CONECTADO ao WhatsApp (chip 2)
+
+**Como enviar mensagem (formato correto v1.8.2):**
+```python
+payload = {
+    "number": "55XXXXXXXXXXX",
+    "textMessage": {
+        "text": "sua mensagem aqui"
+    }
+}
+# Header: apikey = A433F7FD-5F57-4C9B-9FED-8910E0401744
+# POST /message/sendText/oral-unic
+```
+
+**Como recriar instancia se necessario:**
+```bash
+python3 /tmp/qr.py
+# Depois escanear QR Code com WhatsApp do chip 2
+```
+
+**LICOES APRENDIDAS ADICIONAIS:**
+- Evolution API v1.8.2 usa MongoDB, NAO MySQL ou PostgreSQL
+- SERVER_URL deve apontar para URL publica do Railway (nao localhost)
+- Instancia tem apikey proprio diferente do global
+- Formato de envio de texto: usar "textMessage": {"text": "..."} e NAO "text" direto
+- MySQL e Redis adicionados inicialmente foram removidos — nao sao necessarios para v1.8.2
+EOF
