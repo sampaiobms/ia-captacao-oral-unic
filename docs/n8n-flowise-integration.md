@@ -141,13 +141,19 @@ return [{ json: sofia }];
 |---------|----------------------------------------------------------------------------------|
 | Method  | POST                                                                             |
 | URL     | `https://evolution-api-production-cedd.up.railway.app/message/sendText/oral-unic` |
-| Headers | `apikey: oralunic2026` / `Content-Type: application/json`                        |
+| Headers | `apikey: A433F7FD-5F57-4C9B-9FED-8910E0401744` / `Content-Type: application/json` |
 
-**Body:**
+> **ATENÇÃO — dois erros comuns:**
+> 1. Usar a **chave global** (`oralunic2026`) aqui — incorreto. Usar a **instance key** acima.
+> 2. Usar `"text": "..."` direto — incorreto. O formato correto v1.8.2 é `"textMessage": { "text": "..." }`.
+
+**Body (formato correto v1.8.2):**
 ```json
 {
   "number": "={{ $json.telefone }}",
-  "text": "={{ $json.mensagem }}",
+  "textMessage": {
+    "text": "={{ $json.mensagem }}"
+  },
   "delay": 5000
 }
 ```
@@ -161,11 +167,15 @@ Ajustar entre 3000 e 8000ms conforme comprimento da mensagem.
 
 No n8n, vá em **Settings → Credentials** e crie:
 
-| Nome da Credential       | Tipo         | Campos                          |
-|--------------------------|--------------|---------------------------------|
-| `Flowise Oral Unic`      | Header Auth  | Name: Authorization, Value: Bearer `<chave>` |
-| `Evolution API`          | Header Auth  | Name: apikey, Value: oralunic2026 |
-| `Supabase Oral Unic`     | Supabase API | URL + Service Role Key          |
+| Nome da Credential            | Tipo         | Campos                                              |
+|-------------------------------|--------------|-----------------------------------------------------|
+| `Flowise Oral Unic`           | Header Auth  | Name: `Authorization`, Value: `Bearer <chave>`      |
+| `Evolution API — Instance`    | Header Auth  | Name: `apikey`, Value: `A433F7FD-5F57-4C9B-9FED-8910E0401744` |
+| `Evolution API — Global`      | Header Auth  | Name: `apikey`, Value: `oralunic2026`               |
+| `Supabase Oral Unic`          | Supabase API | URL + Service Role Key                              |
+
+- Usar **Instance** para enviar mensagens (nó sendText)
+- Usar **Global** para configurar webhook e criar/deletar instâncias
 
 Nunca cole valores diretamente nos nós — use sempre as credentials do n8n.
 

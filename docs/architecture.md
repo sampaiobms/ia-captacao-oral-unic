@@ -85,25 +85,36 @@ CANAIS DE ENTRADA
 
 ## Infraestrutura Railway
 
-| Serviço       | URL                                              | Porta |
-|---------------|--------------------------------------------------|-------|
-| Flowise       | flowise-production-5edd.up.railway.app           | 8080  |
-| n8n           | n8n-lead-production.up.railway.app               | 8080  |
-| Evolution API | evolution-api-production-cedd.up.railway.app     | 8080  |
-| Metabase      | (pendente deploy)                                | 8080  |
-| MySQL         | shortline.proxy.rlwy.net:39145                   | 39145 |
-| Redis         | redis.railway.internal:6379 (interno)            | 6379  |
+| Serviço       | URL                                              | Porta | Status       |
+|---------------|--------------------------------------------------|-------|--------------|
+| Flowise       | flowise-production-5edd.up.railway.app           | 8080  | ✅ Online    |
+| n8n           | n8n-lead-production.up.railway.app               | 8080  | ✅ Online    |
+| Evolution API | evolution-api-production-cedd.up.railway.app     | 8080  | ✅ Conectado |
+| MongoDB       | mongodb.railway.internal:27017 (interno)         | 27017 | ✅ Online    |
+| Metabase      | (pendente deploy)                                | 8080  | ⏳ Pendente  |
 
 > **Regra Railway**: toda aplicação deve escutar na porta **8080**.
 > Nunca usar 5678 (n8n default) ou 3000.
+>
+> MySQL e Redis foram removidos — não são necessários para a v1.8.2 com MongoDB.
+
+## Chaves da Evolution API
+
+| Chave              | Valor                                  | Uso                              |
+|--------------------|----------------------------------------|----------------------------------|
+| Global API Key     | `oralunic2026`                         | Criar instâncias, configurar webhook |
+| Instance Key (oral-unic) | `A433F7FD-5F57-4C9B-9FED-8910E0401744` | **Enviar mensagens** via n8n |
+
+A instance key é diferente da global — usar a instance key no n8n para envio de mensagens.
 
 ## Decisões Técnicas
 
 | Decisão                      | Motivo                                               |
 |------------------------------|------------------------------------------------------|
 | Evolution API v1.8.2         | v2.x tem bug crítico no Baileys (crash loop)         |
-| MySQL para Evolution API     | Compatibilidade nativa com v1.x                      |
+| MongoDB para Evolution API   | MySQL não funciona com v1.8.2; MongoDB é nativo      |
 | Supabase Pro recomendado     | FREE bloqueia porta 5432; pooler 6543 tem delay      |
 | Gemini Flash para follow-up  | Custo menor em mensagens de alto volume              |
 | No-code primeiro             | n8n e Flowise reduzem tempo de entrega e manutenção  |
 | Senhas sem # @ !             | Railway quebra variáveis ENV com esses caracteres     |
+| SERVER_URL obrigatório       | Deve apontar para URL pública Railway, não localhost  |
