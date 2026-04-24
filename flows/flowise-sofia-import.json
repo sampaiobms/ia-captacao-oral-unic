@@ -1,0 +1,100 @@
+{
+  "nodes": [
+    {
+      "id": "bufferWindowMemory_0",
+      "position": {
+        "x": 100,
+        "y": 300
+      },
+      "type": "customNode",
+      "data": {
+        "id": "bufferWindowMemory_0",
+        "label": "Buffer Window Memory",
+        "version": 1,
+        "name": "bufferWindowMemory",
+        "type": "BufferWindowMemory",
+        "baseClasses": [
+          "BufferWindowMemory",
+          "BaseChatMemory",
+          "BaseMemory"
+        ],
+        "inputs": {
+          "k": 10,
+          "memoryKey": "chat_history",
+          "sessionId": ""
+        },
+        "outputs": {}
+      }
+    },
+    {
+      "id": "chatOpenAI_0",
+      "position": {
+        "x": 100,
+        "y": 100
+      },
+      "type": "customNode",
+      "data": {
+        "id": "chatOpenAI_0",
+        "label": "ChatOpenAI",
+        "version": 6,
+        "name": "chatOpenAI",
+        "type": "ChatOpenAI",
+        "baseClasses": [
+          "ChatOpenAI",
+          "BaseChatModel",
+          "BaseLanguageModel"
+        ],
+        "inputs": {
+          "modelName": "gpt-4o-mini",
+          "temperature": 0.3,
+          "maxTokens": 1000,
+          "streaming": true
+        },
+        "outputs": {}
+      }
+    },
+    {
+      "id": "conversationChain_0",
+      "position": {
+        "x": 500,
+        "y": 200
+      },
+      "type": "customNode",
+      "data": {
+        "id": "conversationChain_0",
+        "label": "Conversation Chain - Sofia",
+        "version": 3,
+        "name": "conversationChain",
+        "type": "ConversationChain",
+        "baseClasses": [
+          "ConversationChain",
+          "BaseChain"
+        ],
+        "inputs": {
+          "model": "{{chatOpenAI_0.data.instance}}",
+          "memory": "{{bufferWindowMemory_0.data.instance}}",
+          "systemMessagePrompt": "Voce e Sofia, assistente virtual da Oral Unic Chapadao do Sul, clinica referencia em implantodontia e protocolos All-on-4/6.\n\nSERVICOS:\n- IMPLANTE UNITARIO: dente perdido. Solucao definitiva.\n- PROTOCOLO ALL-ON-4/6: ausencia multipla. Sorriso fixo em 1 dia.\n- INVISALIGN: dentes tortos. Tratamento discreto.\n- CLINICOS: canal, extracao, limpeza.\n\nFLUXO:\n1. Recepcionar com nome + pergunta aberta\n2. Identificar servico\n3. Qualificar urgencia\n4. Oferecer avaliacao gratuita\n\nSCORE:\n- Dente perdido/protocolo: +30\n- Dor funcional: +25\n- Interesse confirmado: +20\n- Disponibilidade imediata: +15\n- Pesquisou preco: +10\nScore>=70: QUENTE | 40-69: MORNO | <40: FRIO\n\nREGRAS:\n- Max 3 paragrafos\n- Tom acolhedor, nunca robotico\n- NUNCA mencionar precos\n- Usar nome do lead sempre\n\nRETORNAR JSON:\n{\"mensagem\": \"...\", \"intencao\": \"implante|protocolo|invisalign|clinico\", \"score\": 0, \"status\": \"quente|morno|frio\", \"proximo_passo\": \"agendar|nutrir|followup\"}"
+        },
+        "outputs": {}
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "source": "chatOpenAI_0",
+      "sourceHandle": "chatOpenAI_0-output-chatOpenAI-ChatOpenAI|BaseChatModel|BaseLanguageModel",
+      "target": "conversationChain_0",
+      "targetHandle": "conversationChain_0-input-model-BaseChatModel|BaseLanguageModel",
+      "type": "buttonedge"
+    },
+    {
+      "id": "e2",
+      "source": "bufferWindowMemory_0",
+      "sourceHandle": "bufferWindowMemory_0-output-bufferWindowMemory-BufferWindowMemory|BaseChatMemory|BaseMemory",
+      "target": "conversationChain_0",
+      "targetHandle": "conversationChain_0-input-memory-BaseChatMemory|BaseMemory",
+      "type": "buttonedge"
+    }
+  ]
+}
