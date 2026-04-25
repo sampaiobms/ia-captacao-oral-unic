@@ -461,4 +461,50 @@ python3 /tmp/qr.py
 - Instancia tem apikey proprio diferente do global
 - Formato de envio de texto: usar "textMessage": {"text": "..."} e NAO "text" direto
 - MySQL e Redis adicionados inicialmente foram removidos — nao sao necessarios para v1.8.2
+
+---
+
+## 15. CORRECAO CRITICA — remoteJid @lid (Abril 2026)
+
+### Problema identificado no no "Normalizar Dados"
+
+O campo `remoteJid` chega como **ID interno do WhatsApp** no formato `@lid`:
+```
+131653733232795@lid
+```
+
+O campo `sender` contem o numero da clinica — NAO usar para identificar o lead.
+
+### Solucao aplicada
+
+No no **"Normalizar Dados"** do fluxo n8n, mapear:
+- `telefone` = `$json.body.data.key.remoteJid` (valor completo com `@lid`)
+
+No no **"Enviar Resposta WhatsApp"**, usar esse mesmo valor:
+```json
+{
+  "number": "131653733232795@lid",
+  "textMessage": { "text": "mensagem da Sofia" }
+}
+```
+
+A Evolution API v1.8.2 aceita `@lid` no campo `number` para responder na conversa correta.
+
+### Fluxo n8n criado
+
+Arquivo: `flows/n8n-whatsapp.json`
+
+Importar no n8n via: **Settings > Import Workflow**
+
+**Configuracoes necessarias apos importar:**
+1. Adicionar variavel de ambiente no n8n (Railway): `SUPABASE_SERVICE_KEY=<service_role_key do Supabase>`
+2. Substituir `CHATFLOW_ID_AQUI` no no "Enviar para Sofia" pelo ID real do chatflow da Sofia no Flowise
+3. Configurar webhook da Evolution API apontando para: `https://n8n-lead-production.up.railway.app/webhook/whatsapp-webhook`
+
+**Estrutura do fluxo:**
+```
+Webhook → Filtrar Mensagem → Normalizar Dados → Upsert Lead
+       → Buscar Lead → Salvar Msg Entrada → Sofia (Flowise)
+       → Salvar Msg Saida → Enviar Resposta WhatsApp (@lid)
+```
 EOF
