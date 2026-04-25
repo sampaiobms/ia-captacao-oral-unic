@@ -62,6 +62,12 @@
             {
               "id": "a-phone",
               "name": "telefone",
+              "value": "={{ ($json.body.data.sender ?? $json.body.data.key.remoteJid ?? '').split('@')[0] }}",
+              "type": "string"
+            },
+            {
+              "id": "a-jid",
+              "name": "jid_completo",
               "value": "={{ $json.body.data.key.remoteJid ?? '' }}",
               "type": "string"
             },
