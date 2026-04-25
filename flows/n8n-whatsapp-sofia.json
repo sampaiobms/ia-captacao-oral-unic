@@ -1,0 +1,279 @@
+{
+  "name": "WhatsApp → Sofia (Oral Unic)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp-oral-unic",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "n1-webhook",
+      "name": "Webhook WhatsApp",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 400],
+      "webhookId": "whatsapp-oral-unic"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "cond-fromme",
+              "leftValue": "={{ $json.body?.data?.key?.fromMe }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "notEquals" }
+            },
+            {
+              "id": "cond-group",
+              "leftValue": "={{ $json.body?.data?.key?.remoteJid ?? '' }}",
+              "rightValue": "@g.us",
+              "operator": { "type": "string", "operation": "notContains" }
+            },
+            {
+              "id": "cond-msg",
+              "leftValue": "={{ $json.body?.data?.message?.conversation ?? $json.body?.data?.message?.extendedTextMessage?.text ?? '' }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEquals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "n2-filter",
+      "name": "Filtrar Mensagens",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [460, 400]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a-phone",
+              "name": "telefone",
+              "value": "={{ $json.body.data.key.remoteJid ?? '' }}",
+              "type": "string"
+            },
+            {
+              "id": "a-name",
+              "name": "nome",
+              "value": "={{ $json.body.data.pushName ?? 'Lead WhatsApp' }}",
+              "type": "string"
+            },
+            {
+              "id": "a-msg",
+              "name": "mensagem_lead",
+              "value": "={{ $json.body.data.message?.conversation ?? $json.body.data.message?.extendedTextMessage?.text ?? '' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "n3-normalize",
+      "name": "Normalizar Dados",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [680, 280]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://btighfgcablumcjacssz.supabase.co/rest/v1/leads",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",        "value": "SUPABASE_SERVICE_ROLE_KEY" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY" },
+            { "name": "Content-Type",  "value": "application/json" },
+            { "name": "Prefer",        "value": "resolution=merge-duplicates,return=representation" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ telefone: $json.telefone, nome: $json.nome, canal: 'whatsapp', status: 'novo' }) }}",
+        "options": {}
+      },
+      "id": "n4-upsert-lead",
+      "name": "Upsert Lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 280],
+      "notes": "⚠️ Substituir SUPABASE_SERVICE_ROLE_KEY pelo valor real (Supabase → Settings → API → service_role)"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://flowise-production-5edd.up.railway.app/api/v1/prediction/5814b9c2-c9a8-4273-a3e1-bacf91bb91ff",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ question: $('Normalizar Dados').item.json.mensagem_lead, overrideConfig: { sessionId: $('Normalizar Dados').item.json.telefone } }) }}",
+        "options": {}
+      },
+      "id": "n5-flowise",
+      "name": "Chamar Sofia",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 280]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parsear JSON retornado pela Sofia (campo 'text' do Flowise)\nconst raw = $input.first().json.text || '';\nlet sofia;\ntry {\n  const clean = raw.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  sofia = JSON.parse(clean);\n} catch (e) {\n  sofia = {\n    mensagem: raw || 'Olá! Como posso ajudar?',\n    intencao: 'desconhecido',\n    score: 0,\n    status: 'frio',\n    proximo_passo: 'followup'\n  };\n}\n\n// Enriquecer com dados do lead para os nós seguintes\nconst lead = $('Upsert Lead').item.json;\nconst leadArray = Array.isArray(lead) ? lead : [lead];\n\nreturn [{\n  json: {\n    ...sofia,\n    telefone: $('Normalizar Dados').item.json.telefone,\n    nome:     $('Normalizar Dados').item.json.nome,\n    mensagem_lead: $('Normalizar Dados').item.json.mensagem_lead,\n    lead_id:  leadArray[0]?.id ?? null\n  }\n}];"
+      },
+      "id": "n6-parse",
+      "name": "Parsear Resposta Sofia",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 280]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://btighfgcablumcjacssz.supabase.co/rest/v1/leads",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",        "value": "SUPABASE_SERVICE_ROLE_KEY" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY" },
+            { "name": "Content-Type",  "value": "application/json" },
+            { "name": "Prefer",        "value": "return=minimal" }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "telefone", "value": "=eq.{{ $json.telefone }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ score_qualificacao: $json.score, status: $json.status, servico_interesse: $json.intencao, updated_at: new Date().toISOString() }) }}",
+        "options": {}
+      },
+      "id": "n7-update-lead",
+      "name": "Atualizar Lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, 280],
+      "notes": "⚠️ Substituir SUPABASE_SERVICE_ROLE_KEY"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://btighfgcablumcjacssz.supabase.co/rest/v1/conversas",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",        "value": "SUPABASE_SERVICE_ROLE_KEY" },
+            { "name": "Authorization", "value": "Bearer SUPABASE_SERVICE_ROLE_KEY" },
+            { "name": "Content-Type",  "value": "application/json" },
+            { "name": "Prefer",        "value": "return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ lead_id: $('Parsear Resposta Sofia').item.json.lead_id, canal: 'whatsapp', mensagem_usuario: $('Parsear Resposta Sofia').item.json.mensagem_lead, resposta_ia: $('Parsear Resposta Sofia').item.json.mensagem, intencao_detectada: $('Parsear Resposta Sofia').item.json.intencao }) }}",
+        "options": {}
+      },
+      "id": "n8-save-conversa",
+      "name": "Salvar Conversa",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1780, 280],
+      "notes": "⚠️ Substituir SUPABASE_SERVICE_ROLE_KEY"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://evolution-api-production-cedd.up.railway.app/message/sendText/oral-unic",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",       "value": "A433F7FD-5F57-4C9B-9FED-8910E0401744" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ number: $('Parsear Resposta Sofia').item.json.telefone, textMessage: { text: $('Parsear Resposta Sofia').item.json.mensagem }, delay: 5000 }) }}",
+        "options": {}
+      },
+      "id": "n9-send-msg",
+      "name": "Enviar Mensagem WA",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2000, 280],
+      "notes": "Instance Key já configurada. Delay 5000ms simula digitação humana."
+    }
+  ],
+  "connections": {
+    "Webhook WhatsApp": {
+      "main": [
+        [{ "node": "Filtrar Mensagens", "type": "main", "index": 0 }]
+      ]
+    },
+    "Filtrar Mensagens": {
+      "main": [
+        [{ "node": "Normalizar Dados", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Normalizar Dados": {
+      "main": [
+        [{ "node": "Upsert Lead", "type": "main", "index": 0 }]
+      ]
+    },
+    "Upsert Lead": {
+      "main": [
+        [{ "node": "Chamar Sofia", "type": "main", "index": 0 }]
+      ]
+    },
+    "Chamar Sofia": {
+      "main": [
+        [{ "node": "Parsear Resposta Sofia", "type": "main", "index": 0 }]
+      ]
+    },
+    "Parsear Resposta Sofia": {
+      "main": [
+        [{ "node": "Atualizar Lead", "type": "main", "index": 0 }]
+      ]
+    },
+    "Atualizar Lead": {
+      "main": [
+        [{ "node": "Salvar Conversa", "type": "main", "index": 0 }]
+      ]
+    },
+    "Salvar Conversa": {
+      "main": [
+        [{ "node": "Enviar Mensagem WA", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "meta": { "instanceId": "" },
+  "id": "oral-unic-wa-sofia-v1"
+}
