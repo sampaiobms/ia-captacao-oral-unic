@@ -1,8 +1,9 @@
 {
   "_meta": {
     "description": "Nós para resolver o problema @lid no fluxo n8n",
-    "instrucoes": "Copie o conteúdo de 'nodes' e cole no canvas do n8n via Ctrl+V. Depois reconecte os fios conforme o HANDOFF3.md",
-    "posicao_no_fluxo": "Entre 'Normalizar Dados' e 'Extrair Número Real'"
+    "instrucoes": "Copie o conteúdo de 'nodes' e cole no canvas do n8n via Ctrl+V. Depois reconecte os fios conforme o HANDOFF5.md",
+    "posicao_no_fluxo": "Entre 'Normalizar Dados' e 'Upsert Lead' (substitui o 'Extrair Número Real' antigo)",
+    "versao": "2.0 — HANDOFF5 — suporte a Android (remoteJid) e fallback findContacts"
   },
   "meta": {
     "instanceId": "oral-unic-fix-lid"
@@ -40,14 +41,14 @@
     {
       "parameters": {
         "language": "javaScript",
-        "jsCode": "// Pega resultado do findContacts da Evolution API (retorna array)\nconst responseData = $('Buscar Contato Real').item.json;\n\n// API pode retornar array ou objeto — normaliza para array\nconst contactList = Array.isArray(responseData) ? responseData : [responseData];\nconst contact = contactList[0];\n\nlet numeroReal = '';\n\nif (contact && contact.id && contact.id.includes('@s.whatsapp.net')) {\n  // Extrai apenas o número: \"5511968404390@s.whatsapp.net\" → \"5511968404390\"\n  numeroReal = contact.id.replace('@s.whatsapp.net', '');\n}\n\n// Debug: se não encontrou, loga para análise\nif (!numeroReal) {\n  console.log('AVISO: Contato não encontrado para pushName:', $('Normalizar Dados').item.json.nome);\n  console.log('Resposta da API:', JSON.stringify(responseData));\n}\n\n// Herda todos os dados de Normalizar Dados e acrescenta o número real\nconst dadosAnteriores = $('Normalizar Dados').item.json;\n\nreturn [{\n  json: {\n    ...dadosAnteriores,\n    numeroReal: numeroReal,\n    telefone: numeroReal\n  }\n}];"
+        "jsCode": "// === FONTE 1: remoteJid do webhook ===\n// Android sem privacidade → vem direto como @s.whatsapp.net\nconst dadosWebhook = $('Normalizar Dados').item.json;\nconst remoteJid = dadosWebhook.remoteJid || '';\n\nlet numeroReal = '';\nlet fonte = '';\n\nif (remoteJid.includes('@s.whatsapp.net')) {\n  numeroReal = remoteJid.replace('@s.whatsapp.net', '');\n  fonte = 'remoteJid_direto';\n}\n\n// === FONTE 2: findContacts por pushName ===\n// Fallback para @lid — funciona se o contato estiver salvo com número real\nif (!numeroReal) {\n  const contactData = $('Buscar Contato Real').item.json;\n  const contactList = Array.isArray(contactData) ? contactData : [contactData];\n  const contact = contactList[0] || {};\n\n  if (contact.id && contact.id.includes('@s.whatsapp.net')) {\n    numeroReal = contact.id.replace('@s.whatsapp.net', '');\n    fonte = 'findContacts_pushName';\n  }\n}\n\n// === NÃO RESOLVIDO: iPhone com privacidade ===\nif (!numeroReal) {\n  console.log('[AVISO] Número não resolvido — @lid de iPhone ou privacidade ativa');\n  console.log('remoteJid:', remoteJid, '| pushName:', dadosWebhook.nome);\n}\n\nconsole.log('numeroReal:', numeroReal, '| fonte:', fonte);\n\nreturn [{\n  json: {\n    ...dadosWebhook,\n    numeroReal,\n    telefone: numeroReal,\n    fonteNumero: fonte,\n    lidNaoResolvido: !numeroReal\n  }\n}];"
       },
       "id": "extrair-numero-real-001",
       "name": "Extrair Número Real",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [1120, 240],
-      "notes": "Extrai número do campo id: '5511968404390@s.whatsapp.net' → '5511968404390'"
+      "notes": "Fonte 1: remoteJid do webhook (Android). Fonte 2: findContacts (fallback). @lid iPhone = sem solução via API."
     }
   ],
   "connections": {
