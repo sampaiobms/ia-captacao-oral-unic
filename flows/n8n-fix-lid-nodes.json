@@ -1,0 +1,67 @@
+{
+  "_meta": {
+    "description": "Nós para resolver o problema @lid no fluxo n8n",
+    "instrucoes": "Copie o conteúdo de 'nodes' e cole no canvas do n8n via Ctrl+V. Depois reconecte os fios conforme o HANDOFF3.md",
+    "posicao_no_fluxo": "Entre 'Normalizar Dados' e 'Extrair Número Real'"
+  },
+  "meta": {
+    "instanceId": "oral-unic-fix-lid"
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://evolution-api-production-cedd.up.railway.app/chat/findContacts/oral-unic",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "A433F7FD-5F57-4C9B-9FED-8910E0401744"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ \"where\": { \"pushName\": $('Normalizar Dados').item.json.nome } }) }}",
+        "options": {}
+      },
+      "id": "buscar-contato-real-001",
+      "name": "Buscar Contato Real",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 240],
+      "notes": "Chama /chat/findContacts para resolver @lid → número real pelo pushName do lead"
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "// Pega resultado do findContacts da Evolution API (retorna array)\nconst responseData = $('Buscar Contato Real').item.json;\n\n// API pode retornar array ou objeto — normaliza para array\nconst contactList = Array.isArray(responseData) ? responseData : [responseData];\nconst contact = contactList[0];\n\nlet numeroReal = '';\n\nif (contact && contact.id && contact.id.includes('@s.whatsapp.net')) {\n  // Extrai apenas o número: \"5511968404390@s.whatsapp.net\" → \"5511968404390\"\n  numeroReal = contact.id.replace('@s.whatsapp.net', '');\n}\n\n// Debug: se não encontrou, loga para análise\nif (!numeroReal) {\n  console.log('AVISO: Contato não encontrado para pushName:', $('Normalizar Dados').item.json.nome);\n  console.log('Resposta da API:', JSON.stringify(responseData));\n}\n\n// Herda todos os dados de Normalizar Dados e acrescenta o número real\nconst dadosAnteriores = $('Normalizar Dados').item.json;\n\nreturn [{\n  json: {\n    ...dadosAnteriores,\n    numeroReal: numeroReal,\n    telefone: numeroReal\n  }\n}];"
+      },
+      "id": "extrair-numero-real-001",
+      "name": "Extrair Número Real",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 240],
+      "notes": "Extrai número do campo id: '5511968404390@s.whatsapp.net' → '5511968404390'"
+    }
+  ],
+  "connections": {
+    "Buscar Contato Real": {
+      "main": [
+        [
+          {
+            "node": "Extrair Número Real",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {}
+}
