@@ -1,9 +1,9 @@
 {
   "_meta": {
     "description": "Nós para resolver o problema @lid no fluxo n8n",
-    "instrucoes": "Copie o conteúdo de 'nodes' e cole no canvas do n8n via Ctrl+V. Depois reconecte os fios conforme o HANDOFF5.md",
+    "instrucoes": "Copie o conteúdo de 'nodes' e cole no canvas do n8n via Ctrl+V. Depois reconecte os fios conforme o HANDOFF6.md",
     "posicao_no_fluxo": "Entre 'Normalizar Dados' e 'Upsert Lead' (substitui o 'Extrair Número Real' antigo)",
-    "versao": "2.0 — HANDOFF5 — suporte a Android (remoteJid) e fallback findContacts"
+    "versao": "3.0 — HANDOFF6 — suporte a remoteJidAlt (v2.3.6), remoteJid (Android) e findContacts (fallback)"
   },
   "meta": {
     "instanceId": "oral-unic-fix-lid"
@@ -41,14 +41,14 @@
     {
       "parameters": {
         "language": "javaScript",
-        "jsCode": "// === FONTE 1: remoteJid do webhook ===\n// Android sem privacidade → vem direto como @s.whatsapp.net\nconst dadosWebhook = $('Normalizar Dados').item.json;\nconst remoteJid = dadosWebhook.remoteJid || '';\n\nlet numeroReal = '';\nlet fonte = '';\n\nif (remoteJid.includes('@s.whatsapp.net')) {\n  numeroReal = remoteJid.replace('@s.whatsapp.net', '');\n  fonte = 'remoteJid_direto';\n}\n\n// === FONTE 2: findContacts por pushName ===\n// Fallback para @lid — funciona se o contato estiver salvo com número real\nif (!numeroReal) {\n  const contactData = $('Buscar Contato Real').item.json;\n  const contactList = Array.isArray(contactData) ? contactData : [contactData];\n  const contact = contactList[0] || {};\n\n  if (contact.id && contact.id.includes('@s.whatsapp.net')) {\n    numeroReal = contact.id.replace('@s.whatsapp.net', '');\n    fonte = 'findContacts_pushName';\n  }\n}\n\n// === NÃO RESOLVIDO: iPhone com privacidade ===\nif (!numeroReal) {\n  console.log('[AVISO] Número não resolvido — @lid de iPhone ou privacidade ativa');\n  console.log('remoteJid:', remoteJid, '| pushName:', dadosWebhook.nome);\n}\n\nconsole.log('numeroReal:', numeroReal, '| fonte:', fonte);\n\nreturn [{\n  json: {\n    ...dadosWebhook,\n    numeroReal,\n    telefone: numeroReal,\n    fonteNumero: fonte,\n    lidNaoResolvido: !numeroReal\n  }\n}];"
+        "jsCode": "// === FONTE 0: remoteJidAlt — Evolution API v2.3.6 (SOLUÇÃO @lid) ===\n// Quando remoteJid é @lid, v2.3.6 preenche remoteJidAlt com o número real\nconst dadosWebhook = $('Normalizar Dados').item.json;\nconst remoteJidAlt = dadosWebhook.remoteJidAlt || '';\nconst remoteJid    = dadosWebhook.remoteJid    || '';\n\nlet numeroReal = '';\nlet fonte = '';\n\nif (remoteJidAlt && remoteJidAlt.includes('@s.whatsapp.net')) {\n  numeroReal = remoteJidAlt.replace('@s.whatsapp.net', '');\n  fonte = 'remoteJidAlt_v2';\n}\n\n// === FONTE 1: remoteJid direto (Android @s.whatsapp.net — sem @lid) ===\nif (!numeroReal && remoteJid.includes('@s.whatsapp.net')) {\n  numeroReal = remoteJid.replace('@s.whatsapp.net', '');\n  fonte = 'remoteJid_direto';\n}\n\n// === FONTE 2: findContacts por pushName (fallback legacy) ===\nif (!numeroReal) {\n  const contactData = $('Buscar Contato Real').item.json;\n  const contactList = Array.isArray(contactData) ? contactData : [contactData];\n  const contact = contactList[0] || {};\n  if (contact.id && contact.id.includes('@s.whatsapp.net')) {\n    numeroReal = contact.id.replace('@s.whatsapp.net', '');\n    fonte = 'findContacts_pushName';\n  }\n}\n\n// === FALLBACK: @lid como identificador (evita quebrar Upsert Lead) ===\nconst identificador = numeroReal || remoteJid.replace('@lid', '_lid');\n\nif (!numeroReal) {\n  console.log('[AVISO] Número não resolvido | remoteJid:', remoteJid, '| remoteJidAlt:', remoteJidAlt);\n}\n\nconsole.log('numeroReal:', numeroReal, '| fonte:', fonte);\n\nreturn [{\n  json: {\n    ...dadosWebhook,\n    numeroReal,\n    telefone: identificador,\n    fonteNumero: fonte || 'lid_fallback',\n    lidNaoResolvido: !numeroReal\n  }\n}];"
       },
       "id": "extrair-numero-real-001",
       "name": "Extrair Número Real",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [1120, 240],
-      "notes": "Fonte 1: remoteJid do webhook (Android). Fonte 2: findContacts (fallback). @lid iPhone = sem solução via API."
+      "notes": "Fonte 0: remoteJidAlt v2.3.6 (resolve @lid iPhone+Android). Fonte 1: remoteJid @s.whatsapp.net. Fonte 2: findContacts. Fallback: _lid."
     }
   ],
   "connections": {
