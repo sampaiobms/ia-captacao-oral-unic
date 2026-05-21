@@ -1,0 +1,442 @@
+{
+  "_meta": {
+    "descricao": "Fluxo completo Oral Unic — Captação WhatsApp v4",
+    "versao": "4.0 — HANDOFF8 — com Google Calendar, boolean fix, Sofia humanizada",
+    "instrucoes": "Importar via n8n > Import from JSON. Após importar: (1) selecionar o calendário no nó 'Criar Evento Calendar', (2) ativar o workflow."
+  },
+  "name": "Oral Unic - Captacao WhatsApp",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp-oral-unic",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "wh-001",
+      "name": "Webhook WhatsApp",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 300],
+      "webhookId": "whatsapp-oral-unic"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "cond-frommefase",
+              "leftValue": "={{ $json.body.data.key.fromMe }}",
+              "rightValue": false,
+              "operator": { "type": "boolean", "operation": "equals" }
+            },
+            {
+              "id": "cond-event",
+              "leftValue": "={{ $json.body.event }}",
+              "rightValue": "messages.upsert",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-001",
+      "name": "Filtrar Mensagens",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [220, 300]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const keyData = $json.body?.data?.key || {};\nreturn [{\n  json: {\n    remoteJid:    keyData.remoteJid    || '',\n    remoteJidAlt: keyData.remoteJidAlt || '',\n    nome:         $json.body?.data?.pushName || '',\n    mensagem:     $json.body?.data?.message?.conversation ||\n                  $json.body?.data?.message?.extendedTextMessage?.text || '',\n    source:       $json.body?.data?.source || '',\n    messageId:    keyData.id || ''\n  }\n}];"
+      },
+      "id": "code-001",
+      "name": "Normalizar Dados",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://evolution-api-production-cedd.up.railway.app/chat/findContacts/oral-unic",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "7348D291-808B-4697-B0C1-58D37ECB8D29" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ \"where\": { \"pushName\": $('Normalizar Dados').item.json.nome } }) }}",
+        "options": {}
+      },
+      "id": "http-001",
+      "name": "Buscar Contato Real",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [660, 300]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const key = $('Normalizar Dados').item.json;\nconst jid = key.remoteJidAlt || key.remoteJid || '';\nconst telefone = jid.replace('@s.whatsapp.net', '').replace('@lid', '');\nreturn [{\n  json: {\n    ...key,\n    numeroReal:  telefone,\n    telefone:    telefone,\n    fonteNumero: key.remoteJidAlt ? 'remoteJidAlt' : 'remoteJid'\n  }\n}];"
+      },
+      "id": "code-002",
+      "name": "Extrair Número Real",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://btighfgcablumcjacssz.supabase.co/rest/v1/leads?on_conflict=telefone",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",         "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ0aWdoZmdjYWJsdW1jamFjc3N6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTYxMjIxOCwiZXhwIjoyMDkxMTg4MjE4fQ.g0MkJL-RzgGfv26yL0gHJTshy4xqGPh3tuZnJrotvNU" },
+            { "name": "Authorization",  "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ0aWdoZmdjYWJsdW1jamFjc3N6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTYxMjIxOCwiZXhwIjoyMDkxMTg4MjE4fQ.g0MkJL-RzgGfv26yL0gHJTshy4xqGPh3tuZnJrotvNU" },
+            { "name": "Content-Type",   "value": "application/json" },
+            { "name": "Prefer",         "value": "resolution=merge-duplicates,return=representation" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"nome\": \"{{ $('Extrair Número Real').item.json.nome }}\",\n  \"telefone\": \"{{ $('Extrair Número Real').item.json.telefone }}\",\n  \"canal\": \"whatsapp\"\n}",
+        "options": {}
+      },
+      "id": "http-002",
+      "name": "Upsert Lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1100, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://btighfgcablumcjacssz.supabase.co/rest/v1/mensagens",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",         "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ0aWdoZmdjYWJsdW1jamFjc3N6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTYxMjIxOCwiZXhwIjoyMDkxMTg4MjE4fQ.g0MkJL-RzgGfv26yL0gHJTshy4xqGPh3tuZnJrotvNU" },
+            { "name": "Authorization",  "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ0aWdoZmdjYWJsdW1jamFjc3N6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTYxMjIxOCwiZXhwIjoyMDkxMTg4MjE4fQ.g0MkJL-RzgGfv26yL0gHJTshy4xqGPh3tuZnJrotvNU" },
+            { "name": "Content-Type",   "value": "application/json" },
+            { "name": "Prefer",         "value": "return=representation" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "keypair",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "lead_id",     "value": "={{ $('Upsert Lead').item.json.id }}" },
+            { "name": "direcao",     "value": "entrada" },
+            { "name": "conteudo",    "value": "={{ $('Normalizar Dados').item.json.mensagem }}" },
+            { "name": "tipo",        "value": "texto" },
+            { "name": "enviado_por", "value": "lead" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-003",
+      "name": "Salvar Mensagem Entrada",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1320, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://flowise-production-5edd.up.railway.app/api/v1/prediction/5814b9c2-c9a8-4273-a3e1-bacf91bb91ff",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"question\": \"{{ $('Normalizar Dados').item.json.mensagem }}\",\n  \"overrideConfig\": {\n    \"sessionId\": \"{{ $('Extrair Número Real').item.json.telefone }}\"\n  }\n}",
+        "options": {}
+      },
+      "id": "http-004",
+      "name": "Chamar Sofia",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1540, 300]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const raw = $input.first().json.text || '';\nlet sofia;\ntry {\n  const clean = raw.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  sofia = JSON.parse(clean);\n} catch (e) {\n  sofia = {\n    mensagem: raw || 'Olá! Como posso ajudar?',\n    intencao: 'desconhecido',\n    score: 0,\n    status: 'frio',\n    proximo_passo: 'followup',\n    dor: false,\n    agendamento_confirmado: false,\n    agendamento_horario: ''\n  };\n}\n\nconst lead = $('Upsert Lead').item.json;\nconst leadArray = Array.isArray(lead) ? lead : [lead];\nconst nr = $('Normalizar Dados').item.json;\n\nreturn [{\n  json: {\n    ...sofia,\n    telefone:      nr.telefone,\n    nome:          nr.nome,\n    mensagem_lead: nr.mensagem,\n    lead_id:       leadArray[0]?.id ?? null\n  }\n}];"
+      },
+      "id": "code-003",
+      "name": "Parsear Resposta Sofia",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1760, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "cond-agendamento",
+              "leftValue": "={{ $json.agendamento_confirmado }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-002",
+      "name": "Verificar Agendamento",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1980, 300]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const sofia = $('Parsear Resposta Sofia').item.json;\nconst horario = sofia.agendamento_horario || '09:00';\nconst [horas, minutos] = horario.split(':').map(Number);\n\nconst inicio = new Date();\ninicio.setHours(horas, minutos, 0, 0);\nconst fim = new Date(inicio.getTime() + 30 * 60 * 1000);\n\nreturn [{\n  json: {\n    startDateTime: inicio.toISOString(),\n    endDateTime:   fim.toISOString(),\n    titulo:  `Avaliação Gratuita - ${sofia.nome}`,\n    lead_id: sofia.lead_id,\n    nome:    sofia.nome,\n    servico: sofia.intencao\n  }\n}];"
+      },
+      "id": "code-004",
+      "name": "Preparar Agendamento",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2200, 100]
+    },
+    {
+      "parameters": {
+        "calendar": { "__rl": true, "mode": "list", "value": "" },
+        "start": "={{ $json.startDateTime }}",
+        "end": "={{ $json.endDateTime }}",
+        "additionalFields": {
+          "summary": "={{ $json.titulo }}"
+        }
+      },
+      "id": "cal-001",
+      "name": "Criar Evento Calendar",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [2420, 100],
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://btighfgcablumcjacssz.supabase.co/rest/v1/agendamentos",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",         "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ0aWdoZmdjYWJsdW1jamFjc3N6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTYxMjIxOCwiZXhwIjoyMDkxMTg4MjE4fQ.g0MkJL-RzgGfv26yL0gHJTshy4xqGPh3tuZnJrotvNU" },
+            { "name": "Authorization",  "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ0aWdoZmdjYWJsdW1jamFjc3N6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTYxMjIxOCwiZXhwIjoyMDkxMTg4MjE4fQ.g0MkJL-RzgGfv26yL0gHJTshy4xqGPh3tuZnJrotvNU" },
+            { "name": "Content-Type",   "value": "application/json" },
+            { "name": "Prefer",         "value": "return=representation" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"lead_id\": \"{{ $('Preparar Agendamento').item.json.lead_id }}\",\n  \"titulo\": \"{{ $('Preparar Agendamento').item.json.titulo }}\",\n  \"inicio\": \"{{ $('Preparar Agendamento').item.json.startDateTime }}\",\n  \"fim\": \"{{ $('Preparar Agendamento').item.json.endDateTime }}\",\n  \"servico\": \"{{ $('Preparar Agendamento').item.json.servico }}\",\n  \"google_event_id\": \"{{ $('Criar Evento Calendar').item.json.id }}\",\n  \"status\": \"confirmado\"\n}",
+        "options": {}
+      },
+      "id": "http-005",
+      "name": "Salvar Agendamento",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2640, 100]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://btighfgcablumcjacssz.supabase.co/rest/v1/mensagens",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",         "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ0aWdoZmdjYWJsdW1jamFjc3N6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTYxMjIxOCwiZXhwIjoyMDkxMTg4MjE4fQ.g0MkJL-RzgGfv26yL0gHJTshy4xqGPh3tuZnJrotvNU" },
+            { "name": "Authorization",  "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ0aWdoZmdjYWJsdW1jamFjc3N6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTYxMjIxOCwiZXhwIjoyMDkxMTg4MjE4fQ.g0MkJL-RzgGfv26yL0gHJTshy4xqGPh3tuZnJrotvNU" },
+            { "name": "Content-Type",   "value": "application/json" },
+            { "name": "Prefer",         "value": "return=representation" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "keypair",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "lead_id",     "value": "={{ $('Parsear Resposta Sofia').item.json.lead_id }}" },
+            { "name": "direcao",     "value": "saida" },
+            { "name": "conteudo",    "value": "={{ $('Parsear Resposta Sofia').item.json.mensagem }}" },
+            { "name": "tipo",        "value": "texto" },
+            { "name": "enviado_por", "value": "Sofia" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-006",
+      "name": "Salvar Mensagem Saida",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2860, 300]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://btighfgcablumcjacssz.supabase.co/rest/v1/leads?id=eq.{{ $('Parsear Resposta Sofia').item.json.lead_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",         "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ0aWdoZmdjYWJsdW1jamFjc3N6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTYxMjIxOCwiZXhwIjoyMDkxMTg4MjE4fQ.g0MkJL-RzgGfv26yL0gHJTshy4xqGPh3tuZnJrotvNU" },
+            { "name": "Authorization",  "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ0aWdoZmdjYWJsdW1jamFjc3N6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTYxMjIxOCwiZXhwIjoyMDkxMTg4MjE4fQ.g0MkJL-RzgGfv26yL0gHJTshy4xqGPh3tuZnJrotvNU" },
+            { "name": "Content-Type",   "value": "application/json" },
+            { "name": "Prefer",         "value": "return=representation" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"score_qualificacao\": {{ $('Parsear Resposta Sofia').item.json.score ?? 0 }},\n  \"servico_interesse\": \"{{ $('Parsear Resposta Sofia').item.json.intencao ?? '' }}\",\n  \"status\": \"{{ $('Parsear Resposta Sofia').item.json.status ?? 'novo' }}\",\n  \"proximo_passo\": \"{{ $('Parsear Resposta Sofia').item.json.proximo_passo ?? '' }}\",\n  \"dor_relatada\": {{ $('Parsear Resposta Sofia').item.json.dor ?? false }}\n}",
+        "options": {}
+      },
+      "id": "http-007",
+      "name": "Atualizar Lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3080, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://btighfgcablumcjacssz.supabase.co/rest/v1/conversas",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",         "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ0aWdoZmdjYWJsdW1jamFjc3N6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTYxMjIxOCwiZXhwIjoyMDkxMTg4MjE4fQ.g0MkJL-RzgGfv26yL0gHJTshy4xqGPh3tuZnJrotvNU" },
+            { "name": "Authorization",  "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ0aWdoZmdjYWJsdW1jamFjc3N6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTYxMjIxOCwiZXhwIjoyMDkxMTg4MjE4fQ.g0MkJL-RzgGfv26yL0gHJTshy4xqGPh3tuZnJrotvNU" },
+            { "name": "Content-Type",   "value": "application/json" },
+            { "name": "Prefer",         "value": "return=representation" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "keypair",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "lead_id",            "value": "={{ $('Parsear Resposta Sofia').item.json.lead_id }}" },
+            { "name": "canal",              "value": "whatsapp" },
+            { "name": "mensagem_usuario",   "value": "={{ $('Normalizar Dados').item.json.mensagem }}" },
+            { "name": "resposta_ia",        "value": "={{ $('Parsear Resposta Sofia').item.json.mensagem }}" },
+            { "name": "intencao_detectada", "value": "={{ $('Parsear Resposta Sofia').item.json.intencao ?? 'desconhecido' }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-008",
+      "name": "Salvar Conversa",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3300, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://evolution-api-production-cedd.up.railway.app/message/sendText/oral-unic",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",       "value": "7348D291-808B-4697-B0C1-58D37ECB8D29" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"number\": \"{{ $('Parsear Resposta Sofia').item.json.telefone }}\",\n  \"textMessage\": {\n    \"text\": \"{{ $('Parsear Resposta Sofia').item.json.mensagem }}\"\n  }\n}",
+        "options": {}
+      },
+      "id": "http-009",
+      "name": "Enviar Mensagem WA",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3520, 300]
+    }
+  ],
+  "connections": {
+    "Webhook WhatsApp": {
+      "main": [[{ "node": "Filtrar Mensagens", "type": "main", "index": 0 }]]
+    },
+    "Filtrar Mensagens": {
+      "main": [
+        [{ "node": "Normalizar Dados", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Normalizar Dados": {
+      "main": [[{ "node": "Buscar Contato Real", "type": "main", "index": 0 }]]
+    },
+    "Buscar Contato Real": {
+      "main": [[{ "node": "Extrair Número Real", "type": "main", "index": 0 }]]
+    },
+    "Extrair Número Real": {
+      "main": [[{ "node": "Upsert Lead", "type": "main", "index": 0 }]]
+    },
+    "Upsert Lead": {
+      "main": [[{ "node": "Salvar Mensagem Entrada", "type": "main", "index": 0 }]]
+    },
+    "Salvar Mensagem Entrada": {
+      "main": [[{ "node": "Chamar Sofia", "type": "main", "index": 0 }]]
+    },
+    "Chamar Sofia": {
+      "main": [[{ "node": "Parsear Resposta Sofia", "type": "main", "index": 0 }]]
+    },
+    "Parsear Resposta Sofia": {
+      "main": [[{ "node": "Verificar Agendamento", "type": "main", "index": 0 }]]
+    },
+    "Verificar Agendamento": {
+      "main": [
+        [{ "node": "Preparar Agendamento", "type": "main", "index": 0 }],
+        [{ "node": "Salvar Mensagem Saida", "type": "main", "index": 0 }]
+      ]
+    },
+    "Preparar Agendamento": {
+      "main": [[{ "node": "Criar Evento Calendar", "type": "main", "index": 0 }]]
+    },
+    "Criar Evento Calendar": {
+      "main": [[{ "node": "Salvar Agendamento", "type": "main", "index": 0 }]]
+    },
+    "Salvar Agendamento": {
+      "main": [[{ "node": "Salvar Mensagem Saida", "type": "main", "index": 0 }]]
+    },
+    "Salvar Mensagem Saida": {
+      "main": [[{ "node": "Atualizar Lead", "type": "main", "index": 0 }]]
+    },
+    "Atualizar Lead": {
+      "main": [[{ "node": "Salvar Conversa", "type": "main", "index": 0 }]]
+    },
+    "Salvar Conversa": {
+      "main": [[{ "node": "Enviar Mensagem WA", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "instanceId": "oral-unic"
+  }
+}
