@@ -57,7 +57,7 @@ const SELECTORS = {
   // Confirmado no HTML real em 15/11/2026: a tabela de resultados usa a
   // extensão "Buttons" do DataTables. O ícone de download (canto superior
   // direito do grid) abre um menu com "Exportar PDF" / "Exportar Excel".
-  exportMenuButton: '.dropdown-btn',
+  exportMenuButton: '.dropdown-dataTables .dropdown-btn',
   exportButton: 'button.buttons-excel, button:has-text("Exportar Excel")',
 };
 // =================================================================
