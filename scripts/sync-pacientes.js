@@ -143,8 +143,15 @@ async function exportOfficeWindow(page, office, win, downloadDir) {
 
   // Escreve a data direto no campo (sem clicar nele), para o calendário
   // visual nunca abrir e atrapalhar.
+  // Escreve a data direto no campo (sem clicar nele), mas essa biblioteca de
+  // calendário reabre o popup visual sozinha sempre que o valor muda — então,
+  // depois de cada campo, clica num ponto neutro da página (fora do
+  // calendário) pra forçar o fechamento antes de continuar.
   await setDateField(page, SELECTORS.dateStart, toBr(win.start));
+  await page.locator('body').click({ position: { x: 10, y: 10 } });
   await setDateField(page, SELECTORS.dateEnd, toBr(win.end));
+  await page.locator('body').click({ position: { x: 10, y: 10 } });
+  await page.waitForTimeout(300);
 
   await page.click(SELECTORS.searchButton);
   await page.waitForLoadState('networkidle');
