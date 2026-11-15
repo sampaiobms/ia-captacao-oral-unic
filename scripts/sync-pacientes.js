@@ -4,10 +4,8 @@
 // IMPORTANTE (leia o README.md antes de rodar pela primeira vez):
 // Os seletores em SELECTORS abaixo são uma estimativa de "melhor esforço" --
 // ninguém com acesso a este robô pôde logar no ERP real para conferir o HTML
-// exato da tela de login, dos filtros de data e do botão de exportar. É
-// bem provável que seja preciso ajustar esses seletores depois da primeira
-// rodada real (manual, via workflow_dispatch) e de olhar o erro/screenshot
-// salvo como artifact do GitHub Actions.
+// exato da tela de login. Foram sendo calibrados rodada a rodada a partir dos
+// erros reais (ver histórico de ajustes no final deste arquivo).
 
 const { chromium } = require('playwright');
 const fs = require('fs');
@@ -22,37 +20,43 @@ const REPORT_URL = ERP_BASE_URL + '/Report/CadastrosPacientes';
 // Dia de abertura da clínica = início da série histórica a buscar.
 const CLINIC_OPENING_DATE = '2024-08-01';
 
+// Clínicas a buscar no filtro "Clínica" do relatório (value = id da opção
+// no <select id="idOffice">). Só Chapadão do Sul está em operação hoje —
+// "Sao Bernardo do Campo" (value 305) é uma clínica de teste, fora de
+// operação, e não deve ser buscada. Para incluir uma nova clínica real no
+// futuro, basta adicionar outro { value, label } aqui.
+const TARGET_OFFICES = [{ value: '392', label: 'Chapadao do Sul' }];
+
 const SELECTORS = {
   // Tela de login
   loginUser: 'input[name="usuario"], input#usuario, input[type="text"]',
   loginPass: 'input[name="senha"], input#senha, input[type="password"]',
   loginSubmit: 'button[type="submit"], input[type="submit"]',
 
-  // Popup que às vezes aparece logo após logar (aviso/mensagem) — tenta
-  // vários seletores comuns, em ordem, e segue em frente se não achar nenhum.
+  // Popups que podem aparecer (aviso pós-login, ou validação do próprio
+  // relatório, que usa SweetAlert2 — classe .swal2-*)
   popupCloseCandidates: [
     'button:has-text("Fechar")',
     'button:has-text("OK")',
     'button:has-text("Entendi")',
     'button:has-text("Não mostrar")',
+    '.swal2-confirm',
+    '.swal2-close',
     '[aria-label="Close"]',
     '.modal.show .btn-close',
     '.modal.show button.close',
     '.modal.in .close',
   ],
 
-  // Filtro de datas do relatório (confirmado no HTML real em 15/11/2026)
+  // Confirmado no HTML real em 15/11/2026
+  officeSelect: '#idOffice', // "Clínica" — NUNCA deixar em "Todas" (limita a janela a 1 mês)
   dateStart: '#dateBegin',
   dateEnd: '#dateEnd',
-
-  // Botão que roda a pesquisa com os filtros preenchidos (confirmado:
-  // <button class="btn large primary" onclick="return pesquisarTela(this)">Pesquisar</button>)
   searchButton: 'button[onclick*="pesquisarTela"], button:has-text("Pesquisar")',
 
   // Botão de exportar o relatório (gera o download do xlsx) — AINDA É UM CHUTE:
-  // não apareceu na tela inicial (só os campos de filtro + "Pesquisar"), então
-  // deve surgir junto com a tabela de resultados, depois de pesquisar. Se esse
-  // seletor não achar nada, o erro.html da próxima rodada mostra o botão real.
+  // não apareceu na tela inicial, deve surgir junto com a tabela de resultados.
+  // Se esse seletor não achar nada, o erro.html da próxima rodada mostra o botão real.
   exportButton: '[onclick*="xportar" i], button:has-text("Exportar"), a:has-text("Exportar"), [title*="xportar" i]',
 };
 // =================================================================
@@ -66,8 +70,9 @@ function toBr(d) {
 }
 
 /**
- * Gera as janelas de até 1 ano (limite do ERP), alinhadas ao aniversário da
- * data de abertura da clínica, cobrindo de CLINIC_OPENING_DATE até hoje.
+ * Gera as janelas de até 1 ano (limite do ERP quando uma clínica específica
+ * está selecionada), alinhadas ao aniversário da data de abertura da clínica,
+ * cobrindo de CLINIC_OPENING_DATE até hoje.
  * Ex.: 01/08/2024–31/07/2025, 01/08/2025–31/07/2026, 01/08/2026–hoje.
  * Cresce em 1 janela a cada aniversário, sem precisar editar nada.
  */
@@ -114,6 +119,7 @@ async function login(page) {
   await page.waitForTimeout(1500);
   await dismissPopupIfAny(page);
 }
+
 async function setDateField(page, selector, text) {
   await page.evaluate(
     ({ sel, val }) => {
@@ -128,19 +134,21 @@ async function setDateField(page, selector, text) {
   );
 }
 
-async function exportWindow(page, win, downloadDir) {
+async function exportOfficeWindow(page, office, win, downloadDir) {
   await page.goto(REPORT_URL, { waitUntil: 'networkidle' });
   await dismissPopupIfAny(page);
+
+  // Nunca deixar em "Todas" — limita a janela de datas a 1 mês.
+  await page.selectOption(SELECTORS.officeSelect, office.value);
 
   // Escreve a data direto no campo (sem clicar nele), para o calendário
   // visual nunca abrir e atrapalhar.
   await setDateField(page, SELECTORS.dateStart, toBr(win.start));
   await setDateField(page, SELECTORS.dateEnd, toBr(win.end));
 
-  // Roda a pesquisa primeiro — o botão de exportar só deve aparecer junto
-  // com a tabela de resultados.
   await page.click(SELECTORS.searchButton);
   await page.waitForLoadState('networkidle');
+  await dismissPopupIfAny(page); // caso apareça algum aviso de validação (ex. período)
   await page.waitForTimeout(1500); // dá tempo da tabela de resultados renderizar
 
   const [download] = await Promise.all([
@@ -150,13 +158,15 @@ async function exportWindow(page, win, downloadDir) {
 
   const fileName =
     'cadastro_' +
+    office.value +
+    '_' +
     win.start.toISOString().slice(0, 10) +
     '_' +
     win.end.toISOString().slice(0, 10) +
     '.xlsx';
   const filePath = path.join(downloadDir, fileName);
   await download.saveAs(filePath);
-  console.log('Exportado: ' + fileName);
+  console.log('Exportado (' + office.label + '): ' + fileName);
   return filePath;
 }
 
@@ -177,22 +187,26 @@ async function main() {
   try {
     await login(page);
 
+    console.log('Clínicas a buscar: ' + TARGET_OFFICES.map((o) => o.label).join(', '));
+
     const windows = computeWindows();
-    console.log('Janelas a exportar: ' + windows.length);
+    console.log('Janelas a exportar por clínica: ' + windows.length);
 
     const porFicha = new Map();
     let totalIgnorados = 0;
 
-    for (const win of windows) {
-      const filePath = await exportWindow(page, win, downloadDir);
-      const buffer = fs.readFileSync(filePath);
-      const { validos, ignorados } = parseCadastroPacientes(buffer);
-      totalIgnorados += ignorados;
-      for (const row of validos) {
-        // Janela mais recente processada por último vence em caso de
-        // ficha repetida entre janelas (normalmente não deveria acontecer,
-        // já que as janelas não se sobrepõem, mas é uma salvaguarda).
-        porFicha.set(row.ficha, row);
+    for (const office of TARGET_OFFICES) {
+      for (const win of windows) {
+        const filePath = await exportOfficeWindow(page, office, win, downloadDir);
+        const buffer = fs.readFileSync(filePath);
+        const { validos, ignorados } = parseCadastroPacientes(buffer);
+        totalIgnorados += ignorados;
+        for (const row of validos) {
+          // Janela/clínica mais recente processada por último vence em caso
+          // de ficha repetida (normalmente não deveria acontecer, mas é uma
+          // salvaguarda).
+          porFicha.set(row.ficha, row);
+        }
       }
     }
 
