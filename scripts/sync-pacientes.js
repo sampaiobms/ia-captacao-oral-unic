@@ -145,4 +145,117 @@ async function exportOfficeWindow(page, office, win, downloadDir) {
   // Escreve a data direto no campo (sem clicar nele), mas essa biblioteca de
   // calendário reabre o popup visual sozinha sempre que o valor muda — então,
   // depois de cada campo, clica num ponto neutro da página (fora do
-  //
+  // calendário) pra forçar o fechamento antes de continuar.
+  await setDateField(page, SELECTORS.dateStart, toBr(win.start));
+  await page.locator('body').click({ position: { x: 10, y: 10 } });
+  await setDateField(page, SELECTORS.dateEnd, toBr(win.end));
+  await page.locator('body').click({ position: { x: 10, y: 10 } });
+  await page.waitForTimeout(300);
+
+  await page.click(SELECTORS.searchButton);
+  await page.waitForLoadState('networkidle');
+  await dismissPopupIfAny(page); // caso apareça algum aviso de validação (ex. período)
+  await page.waitForTimeout(1500); // dá tempo da tabela de resultados renderizar
+
+  // Abre o menu de exportação (ícone de download) e só então clica em
+  // "Exportar Excel".
+  await page.click(SELECTORS.exportMenuButton);
+  await page.waitForTimeout(300);
+
+  const [download] = await Promise.all([
+    page.waitForEvent('download', { timeout: 60000 }),
+    page.click(SELECTORS.exportButton),
+  ]);
+
+  const fileName =
+    'cadastro_' +
+    office.value +
+    '_' +
+    win.start.toISOString().slice(0, 10) +
+    '_' +
+    win.end.toISOString().slice(0, 10) +
+    '.xlsx';
+  const filePath = path.join(downloadDir, fileName);
+  await download.saveAs(filePath);
+  console.log('Exportado (' + office.label + '): ' + fileName);
+  return filePath;
+}
+
+async function main() {
+  const required = ['ORAL_UNIC_USER', 'ORAL_UNIC_PASS', 'SYNC_FUNCTION_URL', 'ROBO_SYNC_SECRET'];
+  const missing = required.filter((k) => !process.env[k]);
+  if (missing.length) {
+    throw new Error('Variáveis de ambiente faltando: ' + missing.join(', '));
+  }
+
+  const downloadDir = path.join(__dirname, '..', 'downloads');
+  fs.mkdirSync(downloadDir, { recursive: true });
+
+  const browser = await chromium.launch({ headless: true });
+  const context = await browser.newContext({ acceptDownloads: true });
+  const page = await context.newPage();
+
+  try {
+    await login(page);
+
+    console.log('Clínicas a buscar: ' + TARGET_OFFICES.map((o) => o.label).join(', '));
+
+    const windows = computeWindows();
+    console.log('Janelas a exportar por clínica: ' + windows.length);
+
+    const porFicha = new Map();
+    let totalIgnorados = 0;
+
+    for (const office of TARGET_OFFICES) {
+      for (const win of windows) {
+        const filePath = await exportOfficeWindow(page, office, win, downloadDir);
+        const buffer = fs.readFileSync(filePath);
+        const { validos, ignorados } = parseCadastroPacientes(buffer);
+        totalIgnorados += ignorados;
+        for (const row of validos) {
+          // Janela/clínica mais recente processada por último vence em caso
+          // de ficha repetida (normalmente não deveria acontecer, mas é uma
+          // salvaguarda).
+          porFicha.set(row.ficha, row);
+        }
+      }
+    }
+
+    const rows = [...porFicha.values()];
+    console.log(
+      'Total de pacientes únicos: ' + rows.length + ' (ignorados ao longo das janelas: ' + totalIgnorados + ')'
+    );
+
+    const res = await fetch(process.env.SYNC_FUNCTION_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Robo-Secret': process.env.ROBO_SYNC_SECRET,
+      },
+      body: JSON.stringify({ rows }),
+    });
+
+    const text = await res.text();
+    console.log('Resposta da function (status ' + res.status + '): ' + text);
+
+    if (!res.ok) {
+      throw new Error('Function retornou status ' + res.status);
+    }
+  } catch (err) {
+    try {
+      await page.screenshot({ path: path.join(downloadDir, 'erro.png'), fullPage: true });
+      fs.writeFileSync(path.join(downloadDir, 'erro.html'), await page.content());
+      console.log('Screenshot e HTML da página salvos em downloads/ para diagnóstico.');
+    } catch (e2) {
+      console.log('Não foi possível salvar screenshot/HTML de diagnóstico: ' + e2.message);
+    }
+    throw err;
+  } finally {
+    await browser.close();
+  }
+}
+
+main().catch((err) => {
+  console.error('Falha na sincronização:', err);
+  process.exit(1);
+});
