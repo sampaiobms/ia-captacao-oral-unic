@@ -232,7 +232,7 @@ async function main() {
         'Content-Type': 'application/json',
         'X-Robo-Secret': process.env.ROBO_SYNC_SECRET,
       },
-      body: JSON.stringify({ rows }),
+       body: JSON.stringify({ clinicaId: null, rows }),
     });
 
     const text = await res.text();
