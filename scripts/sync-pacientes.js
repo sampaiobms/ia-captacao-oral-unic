@@ -114,15 +114,28 @@ async function login(page) {
   await page.waitForTimeout(1500);
   await dismissPopupIfAny(page);
 }
+async function setDateField(page, selector, text) {
+  await page.evaluate(
+    ({ sel, val }) => {
+      const el = document.querySelector(sel);
+      if (!el) throw new Error('Campo de data não encontrado: ' + sel);
+      el.value = val;
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+      el.dispatchEvent(new Event('blur', { bubbles: true }));
+    },
+    { sel: selector, val: text }
+  );
+}
 
 async function exportWindow(page, win, downloadDir) {
   await page.goto(REPORT_URL, { waitUntil: 'networkidle' });
   await dismissPopupIfAny(page);
 
-  await page.fill(SELECTORS.dateStart, toBr(win.start));
-  await page.keyboard.press('Escape'); // fecha o calendário, se um datepicker abrir
-  await page.fill(SELECTORS.dateEnd, toBr(win.end));
-  await page.keyboard.press('Escape');
+  // Escreve a data direto no campo (sem clicar nele), para o calendário
+  // visual nunca abrir e atrapalhar.
+  await setDateField(page, SELECTORS.dateStart, toBr(win.start));
+  await setDateField(page, SELECTORS.dateEnd, toBr(win.end));
 
   // Roda a pesquisa primeiro — o botão de exportar só deve aparecer junto
   // com a tabela de resultados.
