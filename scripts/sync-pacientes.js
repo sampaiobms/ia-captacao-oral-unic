@@ -41,12 +41,19 @@ const SELECTORS = {
     '.modal.in .close',
   ],
 
-  // Filtro de datas do relatório
-  dateStart: 'input[name="dataInicial"], input#dataInicial',
-  dateEnd: 'input[name="dataFinal"], input#dataFinal',
+  // Filtro de datas do relatório (confirmado no HTML real em 15/11/2026)
+  dateStart: '#dateBegin',
+  dateEnd: '#dateEnd',
 
-  // Botão de exportar o relatório (gera o download do xlsx)
-  exportButton: 'button:has-text("Exportar"), a:has-text("Exportar")',
+  // Botão que roda a pesquisa com os filtros preenchidos (confirmado:
+  // <button class="btn large primary" onclick="return pesquisarTela(this)">Pesquisar</button>)
+  searchButton: 'button[onclick*="pesquisarTela"], button:has-text("Pesquisar")',
+
+  // Botão de exportar o relatório (gera o download do xlsx) — AINDA É UM CHUTE:
+  // não apareceu na tela inicial (só os campos de filtro + "Pesquisar"), então
+  // deve surgir junto com a tabela de resultados, depois de pesquisar. Se esse
+  // seletor não achar nada, o erro.html da próxima rodada mostra o botão real.
+  exportButton: '[onclick*="xportar" i], button:has-text("Exportar"), a:has-text("Exportar"), [title*="xportar" i]',
 };
 // =================================================================
 
@@ -113,7 +120,15 @@ async function exportWindow(page, win, downloadDir) {
   await dismissPopupIfAny(page);
 
   await page.fill(SELECTORS.dateStart, toBr(win.start));
+  await page.keyboard.press('Escape'); // fecha o calendário, se um datepicker abrir
   await page.fill(SELECTORS.dateEnd, toBr(win.end));
+  await page.keyboard.press('Escape');
+
+  // Roda a pesquisa primeiro — o botão de exportar só deve aparecer junto
+  // com a tabela de resultados.
+  await page.click(SELECTORS.searchButton);
+  await page.waitForLoadState('networkidle');
+  await page.waitForTimeout(1500); // dá tempo da tabela de resultados renderizar
 
   const [download] = await Promise.all([
     page.waitForEvent('download', { timeout: 60000 }),
