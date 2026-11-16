@@ -2,9 +2,10 @@
   "name": "robo-sync-pacientes-oral-unic",
   "version": "1.0.0",
   "private": true,
-  "description": "Robo que busca o relatorio de Cadastros de Pacientes no ERP da Oral Unic (login/senha) e sincroniza com o Supabase do CRM via Edge Function sync-pacientes-robo.",
+  "description": "Robos que buscam relatorios no ERP da Oral Unic (login/senha) e sincronizam com o Supabase do CRM via Edge Functions dedicadas (Cadastros de Pacientes e Cobranca).",
   "scripts": {
-    "sync": "node scripts/sync-pacientes.js"
+    "sync": "node scripts/sync-pacientes.js",
+    "sync:cobranca": "node scripts/sync-cobranca.js"
   },
   "dependencies": {
     "playwright": "^1.48.0",
