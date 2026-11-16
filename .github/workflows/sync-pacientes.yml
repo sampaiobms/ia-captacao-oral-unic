@@ -30,6 +30,8 @@ jobs:
           ORAL_UNIC_PASS: ${{ secrets.ORAL_UNIC_PASS }}
           SYNC_FUNCTION_URL: ${{ secrets.SYNC_FUNCTION_URL }}
           ROBO_SYNC_SECRET: ${{ secrets.ROBO_SYNC_SECRET }}
+          STOCK_SYNC_FUNCTION_URL: ${{ secrets.STOCK_SYNC_FUNCTION_URL }}
+          STOCK_ROBO_SYNC_SECRET: ${{ secrets.STOCK_ROBO_SYNC_SECRET }}
         run: npm run sync
 
       - name: Salvar evidências em caso de falha
