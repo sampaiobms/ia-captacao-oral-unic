@@ -1,0 +1,40 @@
+name: Sync Cobrança (Oral Unic)
+
+on:
+  schedule:
+    # 08:30 no horário de Brasília (UTC-3) = 11:30 UTC, seg-sex.
+    - cron: '30 11 * * 1-5'
+  workflow_dispatch: {}
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Instalar dependências
+        run: npm install
+
+      - name: Instalar navegador do Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Rodar sincronização de Cobrança
+        env:
+          ORAL_UNIC_USER: ${{ secrets.ORAL_UNIC_USER }}
+          ORAL_UNIC_PASS: ${{ secrets.ORAL_UNIC_PASS }}
+          SYNC_COBRANCA_FUNCTION_URL: ${{ secrets.SYNC_COBRANCA_FUNCTION_URL }}
+          ROBO_COBRANCA_SECRET: ${{ secrets.ROBO_COBRANCA_SECRET }}
+        run: npm run sync:cobranca
+
+      - name: Salvar evidências em caso de falha
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: robo-cobranca-debug-${{ github.run_id }}
+          path: downloads/
+          retention-days: 14
