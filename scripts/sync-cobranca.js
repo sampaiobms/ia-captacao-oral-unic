@@ -1,8 +1,4 @@
-  officeSelect: '#idOffice', // confirmado: existe nas telas de Faturamento também
-  // Confirmado no HTML real em 16/11/2026: diferente da tela de Cadastros de
-  // Pacientes (#dateBegin/#dateEnd), aqui os campos são #dataInicial/#dataFinal.
-  dateStart: '#dataInicial',
-  dateEnd: '#dataFinal',// Robô de importação diária de Cobrança (Boletos Abertos + Boletos Pagos) do
+// Robô de importação diária de Cobrança (Boletos Abertos + Boletos Pagos) do
 // ERP Oral Unic -> Supabase. Roda via GitHub Actions (ver
 // .github/workflows/sync-cobranca.yml), 1x por dia, seg-sex.
 //
