@@ -121,6 +121,15 @@ Só depois disso considere o cron automático (2x/dia) como confiável.
 
 ## Robô de Cobrança (Boletos Abertos + Boletos Pagos)
 
+> **Fonte oficial:** a function implantada vive no projeto do CRM no Lovable
+> (`supabase/functions/sync-cobranca-robo/index.ts` e
+> `supabase/functions/_shared/regrasImportCobranca.ts`, regras compartilhadas
+> com o botão manual). Os arquivos deste repositório são uma cópia de
+> referência, sincronizada em 16/11/2026 (regras: boleto com interação não é
+> sobrescrito; boleto futuro que some do ERP vira `cancelada_erp`, ou
+> `pendente_conferencia` se tiver interação; vencidos não são alterados; trava
+> de 20%). Não reimplante a partir daqui sem conferir a versão do CRM.
+
 Busca diariamente (seg-sex, 08:30 Brasília) os dois relatórios de Faturamento
 do ERP (`/Faturamento/BoletosAbertos` e `/Faturamento/BoletosPagos`) e envia
 pra uma Edge Function nova e isolada, `sync-cobranca-robo`, que replica
@@ -151,7 +160,7 @@ app — a mesma conta que roda hoje ao clicar "Processar importação" na tela
 ### Passo a passo adicional (além do que já está configurado para Cadastros de Pacientes)
 
 1. **Criar a Edge Function `sync-cobranca-robo`** no Supabase/Lovable do CRM,
-   com o código em `supabase/sync-cobranca-robo.ts` deste repositório — peça
+   com o código em `supabase/functions/sync-cobranca-robo/index.ts` (+ `supabase/functions/_shared/regrasImportCobranca.ts`) deste repositório — peça
    pro Lovable criar essa function exatamente com esse código (ela é só
    leitura/gravação em `parcelas`, não mexe em nenhuma tela existente).
 2. **Criar o secret `ROBO_COBRANCA_SECRET`** no mesmo projeto Supabase
