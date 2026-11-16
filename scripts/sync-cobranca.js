@@ -50,7 +50,12 @@ const SELECTORS = {
     '.modal.show button.close',
     '.modal.in .close',
   ],
-    officeSelect: '#idOffice', // confirmado: existe nas telas de Faturamento também
+     officeSelect: '#idOffice', // confirmado: existe nas telas de Faturamento também
+     // Confirmado no HTML real em 16/11/2026: diferente da tela de Cadastros de
+     // Pacientes (#dateBegin/#dateEnd), aqui os campos são #dataInicial/#dataFinal.
+     dateStart: '#dataInicial',
+     dateEnd: '#dataFinal',  
+  officeSelect: '#idOffice', // confirmado: existe nas telas de Faturamento também
   // Confirmado no HTML real em 16/11/2026: diferente da tela de Cadastros de
   // Pacientes (#dateBegin/#dateEnd), aqui os campos são #dataInicial/#dataFinal.
   dateStart: '#dataInicial',
