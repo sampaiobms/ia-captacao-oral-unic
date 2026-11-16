@@ -226,20 +226,34 @@ async function main() {
       'Total de pacientes únicos: ' + rows.length + ' (ignorados ao longo das janelas: ' + totalIgnorados + ')'
     );
 
-    const res = await fetch(process.env.SYNC_FUNCTION_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Robo-Secret': process.env.ROBO_SYNC_SECRET,
-      },
-       body: JSON.stringify({ clinicaId: null, rows }),
-    });
-
-    const text = await res.text();
-    console.log('Resposta da function (status ' + res.status + '): ' + text);
-
-    if (!res.ok) {
-      throw new Error('Function retornou status ' + res.status);
+    // Envia a mesma lista para cada destino, de forma independente: se um
+    // falhar, o outro grava mesmo assim; no fim o job falha se algum falhou.
+    const destinos = [
+      { nome: 'CRM', url: process.env.SYNC_FUNCTION_URL, secret: process.env.ROBO_SYNC_SECRET },
+      { nome: 'Estoque', url: process.env.STOCK_SYNC_FUNCTION_URL, secret: process.env.STOCK_ROBO_SYNC_SECRET },
+    ];
+    const falhas = [];
+    for (const d of destinos) {
+      if (!d.url || !d.secret) {
+        console.log('[' + d.nome + '] não configurado (URL/secret ausentes) — envio pulado.');
+        continue;
+      }
+      try {
+        const res = await fetch(d.url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Robo-Secret': d.secret },
+          body: JSON.stringify({ clinicaId: null, rows }),
+        });
+        const text = await res.text();
+        console.log('[' + d.nome + '] Resposta da function (status ' + res.status + '): ' + text);
+        if (!res.ok) falhas.push(d.nome + ' (status ' + res.status + ')');
+      } catch (e) {
+        console.log('[' + d.nome + '] Erro no envio: ' + e.message);
+        falhas.push(d.nome + ' (' + e.message + ')');
+      }
+    }
+    if (falhas.length) {
+      throw new Error('Falha no envio para: ' + falhas.join(', '));
     }
   } catch (err) {
     try {
