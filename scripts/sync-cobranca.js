@@ -1,4 +1,8 @@
-// Robô de importação diária de Cobrança (Boletos Abertos + Boletos Pagos) do
+  officeSelect: '#idOffice', // confirmado: existe nas telas de Faturamento também
+  // Confirmado no HTML real em 16/11/2026: diferente da tela de Cadastros de
+  // Pacientes (#dateBegin/#dateEnd), aqui os campos são #dataInicial/#dataFinal.
+  dateStart: '#dataInicial',
+  dateEnd: '#dataFinal',// Robô de importação diária de Cobrança (Boletos Abertos + Boletos Pagos) do
 // ERP Oral Unic -> Supabase. Roda via GitHub Actions (ver
 // .github/workflows/sync-cobranca.yml), 1x por dia, seg-sex.
 //
@@ -50,9 +54,11 @@ const SELECTORS = {
     '.modal.show button.close',
     '.modal.in .close',
   ],
-  officeSelect: '#idOffice', // pode não existir nesta tela — tentado com try/catch
-  dateStart: '#dateBegin',
-  dateEnd: '#dateEnd',
+    officeSelect: '#idOffice', // confirmado: existe nas telas de Faturamento também
+  // Confirmado no HTML real em 16/11/2026: diferente da tela de Cadastros de
+  // Pacientes (#dateBegin/#dateEnd), aqui os campos são #dataInicial/#dataFinal.
+  dateStart: '#dataInicial',
+  dateEnd: '#dataFinal',
   searchButton: 'button[onclick*="pesquisarTela"], button:has-text("Pesquisar")',
   exportMenuButton: '.dropdown-dataTables .dropdown-btn',
   exportButton: 'button.buttons-excel, button:has-text("Exportar Excel")',
