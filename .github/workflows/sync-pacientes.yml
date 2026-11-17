@@ -1,10 +1,9 @@
 name: Sync Cadastros Pacientes (Oral Unic)
 
 on:
-  schedule:
-    # 07:00 e 17:00 no horário de Brasília (UTC-3) = 10:00 e 20:00 UTC.
-    # Ajuste se a clínica mudar de fuso ou quiser outros horários.
-    - cron: '0 10,20 * * *'
+  # Disparado pelo agendador do CRM (pg_cron -> function disparar-robos),
+  # porque o agendamento do GitHub atrasava 7-9h. Não reative o schedule
+  # aqui para não duplicar a operação.
   workflow_dispatch: {}
 
 jobs:

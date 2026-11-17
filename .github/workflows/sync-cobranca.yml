@@ -1,9 +1,9 @@
 name: Sync Cobrança (Oral Unic)
 
 on:
-  schedule:
-    # 08:30 no horário de Brasília (UTC-3) = 11:30 UTC, seg-sex.
-    - cron: '30 11 * * 1-5'
+  # Disparado pelo agendador do CRM (pg_cron -> function disparar-robos),
+  # porque o agendamento do GitHub atrasava 7-9h. Não reative o schedule
+  # aqui para não duplicar a operação.
   workflow_dispatch: {}
 
 jobs:
